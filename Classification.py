@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 
 #Parameters
 mu0 = np.array([0.0, 0.0])
@@ -7,7 +8,7 @@ mu1 = np.array([3.0, 2.0])
 sigma = np.array([[1.0, 0.5],[0.5, 1.0]])
 
 #C0 and C1 classes generation
-np.random.seed(0)
+np.random.seed(1)
 c0 = np.random.multivariate_normal(mu0, sigma, 10) 
 c1 = np.random.multivariate_normal(mu1, sigma, 10)
 
@@ -44,10 +45,12 @@ def sIGMA(sigma1, size1, sigma2, size2):
     return np.divide(np.add(np.dot(sigma1,size1),np.dot(sigma2, size2)),np.add(size1,size2))
     
 def adl(sigInv, cmu0, cmu1, pi0, pi1, x):
-    decision = np.add(np.subtract(np.dot(np.dot(np.transpose(x), sigInv), (cmu0 - cmu1)), np.dot(np.dot(np.dot(0.5, np.transpose(cmu0 - cmu1)), sigInv), (cmu0 + cmu1))), np.log(np.divide(pi0, pi1)))
+    a1 = np.dot(np.dot(x, sigInv), (cmu0 - cmu1))
+    a2 = np.dot(np.dot(np.dot(0.5, np.transpose(cmu0 - cmu1)), sigInv), (cmu0 + cmu1))
+    decision = np.add(np.subtract(a1, a2), np.log(np.divide(pi0, pi1)))
     return decision
     
-    
+#Parameters calculation    
 cmu0 = moyenne(c01)
 cmu1 = moyenne(c11)
 
@@ -59,9 +62,72 @@ csigma1 = covMatrix(c11)
 
 sig = sIGMA(csigma0, c01.size, csigma1, c11.size)
 sigInv = np.linalg.inv(sig)    
-    
-adl(sigInv, cmu0, cmu1, pi0, pi1, c0)
+
+#ADL results
+learn0 = adl(sigInv, cmu0, cmu1, pi0, pi1, c0)
+learn1 = adl(sigInv, cmu0, cmu1, pi0, pi1, c1)
+learn01 = adl(sigInv, cmu0, cmu1, pi0, pi1, c01)
+learn11 = adl(sigInv, cmu0, cmu1, pi0, pi1, c11)
+
+#Classification rates
+learnTP = 0
+learnTN = 0
+learnFP = 0
+learnFN = 0
+for r in np.nditer(learn0):
+    if 0 < r:
+        learnTP += 1
+    else:
+        learnFN += 1
+for r in np.nditer(learn1):
+    if 0 < r:
+        learnFP += 1
+    else:
+        learnTN += 1
+learnAcc = (learnTP+learnTN)/20
+print("Apprentissage Accuracy = ",learnAcc)
+
+testTP = 0
+testTN = 0
+testFP = 0
+testFN = 0
+for r in np.nditer(learn01):
+    if 0 < r:
+        testTP += 1
+    else:
+        testFN += 1
+for r in np.nditer(learn11):
+    if 0 < r:
+        testFP += 1
+    else:
+        testTN += 1
+testAcc = (testTP+testTN)/2000
+print("Test Accuracy = ",testAcc)
 
 
+ensL = np.concatenate((c0, c1), axis=0)
+class0 = np.zeros((10,), dtype=int)
+class1 = np.ones((10,), dtype=int)
+classL = np.concatenate((class0, class1), axis=0)
+skLDAlearn = LDA()
+skLDAlearn.fit(ensL,classL)
+pred0 = skLDAlearn.predict(c01) 
+pred1 = skLDAlearn.predict(c11) 
+skTP = 0
+skTN = 0
+skFP = 0
+skFN = 0
+for r in np.nditer(pred0):
+    if 0 == r:
+        skTP += 1
+    else:
+        skFN += 1
+for r in np.nditer(pred1):
+    if 0 == r:
+        skFP += 1
+    else:
+        skTN += 1
+skAcc = (skTP+skTN)/2000
+print("SKLearn Accuracy = ",skAcc)
     
 
